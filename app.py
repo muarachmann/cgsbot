@@ -14,7 +14,11 @@ introductions_channel = "CFQV2533L"
 @app.route('/', methods=['GET', 'POST'])
 def check():
     if request.method == 'GET':
-        return make_response("These are not the slackbots you're looking for.", 404)
+        parameter = request.args.get('q')
+        if parameter == 'local':
+            return make_response("Local environment test is ok", 202)
+        else:
+            return make_response("These are not the slackbots you're looking for.", 404)
     else:
         events_data = json.loads(request.data.decode('utf-8'))
 
