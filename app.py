@@ -27,9 +27,7 @@ slack_client = WebClient(token = slack_token)
 
 @app.route('/', methods=['GET', 'POST'])
 def check():
-    
-    get_timeline()
-    
+        
     if request.method == 'GET':
         return make_response("These are not the slackbots you're looking for.", 404)
     else:
