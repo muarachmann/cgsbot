@@ -1,18 +1,35 @@
 from flask import Flask, request, make_response
-from slackclient import SlackClient 
+import slack 
+from slack import WebClient
+from slack.errors import SlackApiError
 import json
+import requests
 import os
+from dotenv import load_dotenv
+
+
+# Build paths inside the project like this: os.path.join(BASE_DIR, ...)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))    
+
+# Load environment variables
+load_dotenv('.env')
 
 app = Flask(__name__)
 
-slack_token = os.environ['SLACK_API_TOKEN']
-sc = SlackClient(slack_token)
-general_channel = "C93RP3CSG"
-introductions_channel = "CFQV2533L"
+general_channel = os.getenv('GENERAL_CHANNEL')
+introductions_channel = os.getenv('INTRODUCTIONS_CHANNEL')
+random_channel = os.getenv('RANDOM_CHANNEL')
+test_bot_channel = os.getenv('TEST_BOT_CHANNEL')
 
+
+slack_token = os.getenv('SLACK_API_TOKEN')
+slack_client = WebClient(token = slack_token)
 
 @app.route('/', methods=['GET', 'POST'])
 def check():
+    
+    get_timeline()
+    
     if request.method == 'GET':
         return make_response("These are not the slackbots you're looking for.", 404)
     else:
@@ -37,8 +54,10 @@ def check():
                     notify_slack("Google Summer of Code official website https://summerofcode.withgoogle.com/")
                 elif "updates" in text:
                     notify_slack("There isn't any updates for now.")
+                elif "timeline" in text:
+                    notify_slack(get_timeline())
                 else:
-                    notify_slack("Hi <@" + user_id + ">, sorry I can't help you with that. Type\n*channel topic* to see topic for this channel\n*gsoc website* to get link to Google Summer of Code website\n*updates* to get GSoC related updates")
+                    notify_slack("Hi <@" + user_id + ">, sorry I can't help you with that. Type\n*channel topic* to see topic for this channel\n*gsoc website* to get link to Google Summer of Code website\n*updates* to get GSoC related updates\n*timeline* to get the current GSoC timeline for this month")
                 return make_response("", 200)
             
             if event_type == "team_join":
@@ -50,13 +69,26 @@ def check():
         return make_response("Not implemented.", 404)
 
 
-def notify_slack(msg):
-    sc.api_call(
-        "chat.postMessage",
-        channel=general_channel,
-        text=msg
-    )
+def get_timeline():
+    r = requests.get('https://raw.githubusercontent.com/muarachmann/gsoc_timeline_scrapper/master/data.json')
+    c = r.content    
+    timeline = json.loads(c)
+    
+    # get the timeline
+    return '\n'.join(timeline["data"])
 
+def notify_slack(msg):
+    try:
+        response = slack_client.chat_postMessage(
+            channel=test_bot_channel,
+            text=msg
+            )
+        print("ok")
+    except SlackApiError as e:
+    # You will get a SlackApiError if "ok" is False
+        assert e.response["ok"] is False
+        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+        print(f"Got an error: {e.response['error']}")
 
 if __name__ == '__main__':
     app.run(debug=True, use_reloader=True)
